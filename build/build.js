@@ -9,19 +9,49 @@ const R = require('ramda');
 var config = { AUTH_REQUEST: {}, TOKEN_REQUEST: {} };
 var oldConfig;
 
-prompt.message = colors.blue(">");
-prompt.start();
-prompt.get({
-  properties: {
-    distribution: {
-      message: colors.red("Enter distribution name"),
-      required: true
-    },
-    method: {
-      description: colors.red("Authentication methods:\n    (1) Google\n    (2) Microsoft\n    (3) GitHub\n    (4) OKTA\n    (5) Auth0\n    (6) Centrify\n\n    Select an authentication method")
-    }
-  }
-}, function (err, result) {
+// 1. AUTHN
+// 2. CLIENT_ID
+// 3. CLIENT_SECRET
+// 4. REDIRECT_URI
+// 5. HD
+// 6. SESSION_DURATION
+// 7. AUTHZ
+// AUTHN=Google CLIENT_ID=abc123 CLIENT_SECRET=secret REDIRECT_URI=https://hackersite/_callback HD=big.com SESSION_DURATION=1 AUTHZ=1
+
+
+const expectedParams = 7;
+//how many arguments are we expecting? +2 for node and script name
+if (process.argv.length < expectedParams + 2) {
+  console.log("You are missing params for google auth. Exiting");
+  return;
+}
+
+// build an object from the cli params
+const cliParams = {};
+process.argv.slice(2).forEach(function (val, index, array) {
+  console.log(index + ': ' + val);
+  let key, value;
+  [key, value] = val.split("=");
+  //Split on "=" sign
+  cliParams[key] = value;
+});
+console.log(cliParams);
+// call the distribution function
+distribution(null, cliParams);
+// prompt.message = colors.blue(">");
+// prompt.start();
+// prompt.get({
+//   properties: {
+//     distribution: {
+//       message: colors.red("Enter distribution name"),
+//       required: true
+//     },
+//     method: {
+//       description: colors.red("Authentication methods:\n    (1) Google\n    (2) Microsoft\n    (3) GitHub\n    (4) OKTA\n    (5) Auth0\n    (6) Centrify\n\n    Select an authentication method")
+//     }
+//   }
+// },
+function distribution(err, result) {
   config.DISTRIBUTION = result.distribution;
   shell.mkdir('-p', 'distributions/' + config.DISTRIBUTION);
   if (fs.existsSync('distributions/' + config.DISTRIBUTION + '/config.json')) {
@@ -78,7 +108,7 @@ prompt.get({
       console.log("Method not recognized. Stopping build...");
       process.exit(1);
   }
-});
+};
 
 function microsoftConfiguration() {
   prompt.message = colors.blue(">>");
@@ -169,43 +199,7 @@ function microsoftConfiguration() {
   });
 }
 
-function googleConfiguration() {
-  prompt.message = colors.blue(">>");
-  prompt.start();
-  prompt.get({
-    properties: {
-      CLIENT_ID: {
-        message: colors.red("Client ID"),
-        required: true,
-        default: R.pathOr('', ['AUTH_REQUEST', 'client_id'], oldConfig)
-      },
-      CLIENT_SECRET: {
-        message: colors.red("Client Secret"),
-        required: true,
-        default: R.pathOr('', ['TOKEN_REQUEST', 'client_secret'], oldConfig)
-      },
-      REDIRECT_URI: {
-        message: colors.red("Redirect URI"),
-        required: true,
-        default: R.pathOr('', ['AUTH_REQUEST', 'redirect_uri'], oldConfig)
-      },
-      HD: {
-        message: colors.red("Hosted Domain"),
-        required: true,
-        default: R.pathOr('', ['AUTH_REQUEST', 'hd'], oldConfig)
-      },
-      SESSION_DURATION: {
-        pattern: /^[0-9]*$/,
-        description: colors.red("Session Duration (hours)"),
-        message: colors.green("Entry must only contain numbers"),
-        required: true,
-        default: R.pathOr('', ['SESSION_DURATION'], oldConfig)/60/60
-      },
-      AUTHZ: {
-        description: colors.red("Authorization methods:\n   (1) Hosted Domain - verify email's domain matches that of the given hosted domain\n   (2) HTTP Email Lookup - verify email exists in JSON array located at given HTTP endpoint\n   (3) Google Groups Lookup - verify email exists in one of given Google Groups\n\n   Select an authorization method")
-      }
-    }
-  }, function(err, result) {
+function googleConfiguration(err, result) {
     config.PRIVATE_KEY = fs.readFileSync('distributions/' + config.DISTRIBUTION + '/id_rsa', 'utf8');
     config.PUBLIC_KEY = fs.readFileSync('distributions/' + config.DISTRIBUTION + '/id_rsa.pub', 'utf8');
     config.DISCOVERY_DOCUMENT = 'https://accounts.google.com/.well-known/openid-configuration';
@@ -234,54 +228,90 @@ function googleConfiguration() {
 
     switch (result.AUTHZ) {
       case '1':
-        shell.cp('./authz/google.hosted-domain.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
-        shell.cp('./nonce.js', './distributions/' + config.DISTRIBUTION + '/nonce.js');
-        writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
-        break;
+      shell.cp('./authz/google.hosted-domain.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
+      shell.cp('./nonce.js', './distributions/' + config.DISTRIBUTION + '/nonce.js');
+      writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
+      break;
       case '2':
-        shell.cp('./authz/google.json-email-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
-        prompt.start();
-        prompt.message = colors.blue(">>>");
-        prompt.get({
-          properties: {
-            JSON_EMAIL_LOOKUP: {
-              description: colors.red("JSON email lookup endpoint"),
-              default: R.pathOr('', ['JSON_EMAIL_LOOKUP'], oldConfig)
-            }
+      shell.cp('./authz/google.json-email-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
+      prompt.start();
+      prompt.message = colors.blue(">>>");
+      prompt.get({
+        properties: {
+          JSON_EMAIL_LOOKUP: {
+            description: colors.red("JSON email lookup endpoint"),
+            default: R.pathOr('', ['JSON_EMAIL_LOOKUP'], oldConfig)
           }
-        }, function (err, result) {
-          config.JSON_EMAIL_LOOKUP = result.JSON_EMAIL_LOOKUP;
-          writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
-        });
-        break;
+        }
+      }, function (err, result) {
+        config.JSON_EMAIL_LOOKUP = result.JSON_EMAIL_LOOKUP;
+        writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
+      });
+      break;
       case '3':
-        prompt.start();
-        prompt.message = colors.blue(">>>");
-        prompt.get({
-          properties: {
-            MOVE: {
-              message: colors.red("Place ") + colors.blue("google-authz.json") + colors.red(" file into ") + colors.blue("distributions/" + config.DISTRIBUTION) + colors.red(" folder. Press enter when done")
-            }
+      prompt.start();
+      prompt.message = colors.blue(">>>");
+      prompt.get({
+        properties: {
+          MOVE: {
+            message: colors.red("Place ") + colors.blue("google-authz.json") + colors.red(" file into ") + colors.blue("distributions/" + config.DISTRIBUTION) + colors.red(" folder. Press enter when done")
           }
-        }, function (err, result) {
-          if (!shell.test('-f', 'distributions/' + config.DISTRIBUTION + '/google-authz.json')) {
-            console.log('Need google-authz.json to use google groups authentication. Stopping build...');
+        }
+      }, function (err, result) {
+        if (!shell.test('-f', 'distributions/' + config.DISTRIBUTION + '/google-authz.json')) {
+          console.log('Need google-authz.json to use google groups authentication. Stopping build...');
+        } else {
+          var googleAuthz = JSON.parse(fs.readFileSync('distributions/' + config.DISTRIBUTION + '/google-authz.json'));
+          if (!googleAuthz.hasOwnProperty('cloudfront_authz_groups')) {
+            console.log('google-authz.json is missing cloudfront_authz_groups. Stopping build...');
           } else {
-            var googleAuthz = JSON.parse(fs.readFileSync('distributions/' + config.DISTRIBUTION + '/google-authz.json'));
-            if (!googleAuthz.hasOwnProperty('cloudfront_authz_groups')) {
-              console.log('google-authz.json is missing cloudfront_authz_groups. Stopping build...');
-            } else {
-              shell.cp('./authz/google.groups-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
-              googleGroupsConfiguration();
-            }
+            shell.cp('./authz/google.groups-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
+            googleGroupsConfiguration();
           }
-        });
-        break;
+        }
+      });
+      break;
       default:
-        console.log("Method not recognized. Stopping build...");
+      console.log("Method not recognized. Stopping build...");
     }
-  });
-}
+};
+
+  // prompt.message = colors.blue(">>");
+  // prompt.start();
+  // prompt.get({
+  //   properties: {
+  //     CLIENT_ID: {
+  //       message: colors.red("Client ID"),
+  //       required: true,
+  //       default: R.pathOr('', ['AUTH_REQUEST', 'client_id'], oldConfig)
+  //     },
+  //     CLIENT_SECRET: {
+  //       message: colors.red("Client Secret"),
+  //       required: true,
+  //       default: R.pathOr('', ['TOKEN_REQUEST', 'client_secret'], oldConfig)
+  //     },
+  //     REDIRECT_URI: {
+  //       message: colors.red("Redirect URI"),
+  //       required: true,
+  //       default: R.pathOr('', ['AUTH_REQUEST', 'redirect_uri'], oldConfig)
+  //     },
+  //     HD: {
+  //       message: colors.red("Hosted Domain"),
+  //       required: true,
+  //       default: R.pathOr('', ['AUTH_REQUEST', 'hd'], oldConfig)
+  //     },
+  //     SESSION_DURATION: {
+  //       pattern: /^[0-9]*$/,
+  //       description: colors.red("Session Duration (hours)"),
+  //       message: colors.green("Entry must only contain numbers"),
+  //       required: true,
+  //       default: R.pathOr('', ['SESSION_DURATION'], oldConfig)/60/60
+  //     },
+  //     AUTHZ: {
+  //       description: colors.red("Authorization methods:\n   (1) Hosted Domain - verify email's domain matches that of the given hosted domain\n   (2) HTTP Email Lookup - verify email exists in JSON array located at given HTTP endpoint\n   (3) Google Groups Lookup - verify email exists in one of given Google Groups\n\n   Select an authorization method")
+  //     }
+  //   }
+  // },
 
 function googleGroupsConfiguration() {
   prompt.start();
