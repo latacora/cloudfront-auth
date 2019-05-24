@@ -9,17 +9,18 @@ const R = require('ramda');
 var config = { AUTH_REQUEST: {}, TOKEN_REQUEST: {} };
 var oldConfig;
 
-// 1. AUTHN
+// 0. distribution (Whatever you want to name your cloudfront distribution)
+// 1. method (Actual name gets assigned to AUTHN)
 // 2. CLIENT_ID
 // 3. CLIENT_SECRET
 // 4. REDIRECT_URI
 // 5. HD
 // 6. SESSION_DURATION
 // 7. AUTHZ
-// AUTHN=Google CLIENT_ID=abc123 CLIENT_SECRET=secret REDIRECT_URI=https://hackersite/_callback HD=big.com SESSION_DURATION=1 AUTHZ=1
+// distribution=somedistname method=1 CLIENT_ID=abc123 CLIENT_SECRET=secret REDIRECT_URI=https://hackersite/_callback HD=big.com SESSION_DURATION=1 AUTHZ=1
 
 
-const expectedParams = 7;
+const expectedParams = 8;
 //how many arguments are we expecting? +2 for node and script name
 if (process.argv.length < expectedParams + 2) {
   console.log("You are missing params for google auth. Exiting");
@@ -67,7 +68,7 @@ function distribution(err, result) {
         oldConfig = undefined;
       }
       config.AUTHN = "GOOGLE";
-      googleConfiguration();
+      googleConfiguration(null, result);
       break;
     case '2':
       if (R.pathOr('', ['AUTHN'], oldConfig) != "MICROSOFT") {
