@@ -184,7 +184,6 @@ function mainProcess(event, context, callback) {
                           httpOnly: true,
                           secure: true,
                           sameSite: "strict"
-
                         })
                       },
                       {

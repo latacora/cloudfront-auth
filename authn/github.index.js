@@ -74,12 +74,18 @@ function mainProcess(event, context, callback) {
                             { },
                             config.PRIVATE_KEY.trim(),
                             {
-                              audience: headers.host[0].value,
-                              subject: auth.getSubject(username),
-                              expiresIn: config.SESSION_DURATION,
-                              algorithm: 'RS256'
+                              "audience": headers.host[0].value,
+                              "subject": auth.getSubject(decodedData),
+                              "expiresIn": config.SESSION_DURATION,
+                              "algorithm": "RS256"
                             } // Options
-                          ))
+                          ), {
+                            path: '/',
+                            maxAge: config.SESSION_DURATION,
+                            httpOnly: true,
+                            secure: true,
+                            sameSite: "strict"
+                          })
                         }],
                       },
                     };
