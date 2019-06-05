@@ -181,7 +181,7 @@ function mainProcess(event, context, callback) {
                         ), {
                           path: '/',
                           maxAge: config.SESSION_DURATION,
-			                    httpOnly: true,
+                          httpOnly: true,
                           secure: true,
                           sameSite: "strict"
 
