@@ -180,7 +180,11 @@ function mainProcess(event, context, callback) {
                           } // Options
                         ), {
                           path: '/',
-                          maxAge: config.SESSION_DURATION
+                          maxAge: config.SESSION_DURATION,
+			                    httpOnly: true,
+                          secure: true,
+                          sameSite: "strict"
+
                         })
                       },
                       {
