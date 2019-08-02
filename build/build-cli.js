@@ -5,6 +5,7 @@ const axios = require('axios');
 const colors = require('colors/safe');
 const url = require('url');
 const R = require('ramda');
+const { execSync } = require("child_process")
 
 var config = { AUTH_REQUEST: {}, TOKEN_REQUEST: {} };
 var oldConfig;
@@ -13,15 +14,17 @@ const minimist = require('minimist')
 const isRequired = () => { throw new Error('param is required'); };
 // description: colors.red("Authentication methods:\n    (1) Google\n    (2) Microsoft\n    (3) GitHub\n    (4) OKTA\n    (5) Auth0\n    (6) Centrify\n\n    Select an authentication method")
 
-function init(distributionName=isRequired(), authenticationMethod=isRequired(), clientId=isRequired(), clientSecret=isRequired(), redirectURI=isRequired(), hostedDomain=isRequired(), sessionDuration=isRequired(), authz=isRequired()) {
+function init(distributionName=isRequired(), authenticationMethod=isRequired(), clientId=isRequired(), clientSecret=isRequired(), redirectURI=isRequired(), hostedDomain=isRequired(), sessionDuration=isRequired(), authz=isRequired(), temp_dir="/tmp") {
   config.DISTRIBUTION = distributionName;
-  shell.mkdir('-p', 'distributions/' + config.DISTRIBUTION);
-  if (fs.existsSync('distributions/' + config.DISTRIBUTION + '/config.json')) {
-    oldConfig = JSON.parse(fs.readFileSync('./distributions/' + config.DISTRIBUTION + '/config.json', 'utf8'));
+  shell.mkdir('-p', `${temp_dir}/distributions/` + config.DISTRIBUTION);
+  if (fs.existsSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/config.json')) {
+    oldConfig = JSON.parse(fs.readFileSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/config.json', 'utf8'));
   }
-  if (!fs.existsSync('distributions/' + config.DISTRIBUTION + '/id_rsa') || !fs.existsSync('./distributions/' + config.DISTRIBUTION + '/id_rsa.pub')) {
-    shell.exec("ssh-keygen -t rsa -m PEM -b 4096 -f ./distributions/" + config.DISTRIBUTION + "/id_rsa -N ''");
-    shell.exec("openssl rsa -in ./distributions/" + config.DISTRIBUTION + "/id_rsa -pubout -outform PEM -out ./distributions/" + config.DISTRIBUTION + "/id_rsa.pub");
+  if (!fs.existsSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/id_rsa') || !fs.existsSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/id_rsa.pub')) {
+    execSync(`ssh-keygen -t rsa -m PEM -b 4096 -f ${temp_dir}/distributions/` + config.DISTRIBUTION + "/id_rsa -N ''");
+    // shell.exec("ssh-keygen -t rsa -m PEM -b 4096 -f ./distributions/" + config.DISTRIBUTION + "/id_rsa -N ''");
+    execSync(`openssl rsa -in ${temp_dir}/distributions/` + config.DISTRIBUTION + `/id_rsa -pubout -outform PEM -out ${temp_dir}/distributions/` + config.DISTRIBUTION + "/id_rsa.pub");
+    // shell.exec(`openssl rsa -in ${temp_dir}/distributions/` + config.DISTRIBUTION + `/id_rsa -pubout -outform PEM -out ${temp_dir}/distributions/` + config.DISTRIBUTION + "/id_rsa.pub");
   }
   switch (authenticationMethod.toString()) {
     case '1':
@@ -29,7 +32,7 @@ function init(distributionName=isRequired(), authenticationMethod=isRequired(), 
         oldConfig = undefined;
       }
       config.AUTHN = "GOOGLE";
-      googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz);
+      googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz, temp_dir);
       break;
     case '2':
       if (R.pathOr('', ['AUTHN'], oldConfig) != "MICROSOFT") {
@@ -199,9 +202,10 @@ function init(distributionName=isRequired(), authenticationMethod=isRequired(), 
 // hostedDomain (latacora.com)
 // sessionDuration in hours
 // integer 1-3 (See above)
-function googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz) {
-    config.PRIVATE_KEY = fs.readFileSync('distributions/' + config.DISTRIBUTION + '/id_rsa', 'utf8');
-    config.PUBLIC_KEY = fs.readFileSync('distributions/' + config.DISTRIBUTION + '/id_rsa.pub', 'utf8');
+function googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz, temp_dir) {
+
+    config.PRIVATE_KEY = fs.readFileSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/id_rsa', 'utf8');
+    config.PUBLIC_KEY = fs.readFileSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/id_rsa.pub', 'utf8');
     config.DISCOVERY_DOCUMENT = 'https://accounts.google.com/.well-known/openid-configuration';
     config.SESSION_DURATION = parseInt(sessionDuration, 10) * 60 * 60;
 
@@ -221,18 +225,18 @@ function googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, 
 
     config.AUTHZ = authz;
 
-    shell.cp('./authn/openid.index.js', './distributions/' + config.DISTRIBUTION + '/index.js');
-    shell.cp('./nonce.js', './distributions/' + config.DISTRIBUTION + '/nonce.js');
-    fs.writeFileSync('distributions/' + config.DISTRIBUTION + '/config.json', JSON.stringify(config, null, 4));
+    shell.cp('./authn/openid.index.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/index.js');
+    shell.cp('./nonce.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/nonce.js');
+    fs.writeFileSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/config.json', JSON.stringify(config, null, 4));
 
     switch (authz.toString()) {
       case '1':
-        shell.cp('./authz/google.hosted-domain.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
-        shell.cp('./nonce.js', './distributions/' + config.DISTRIBUTION + '/nonce.js');
-        writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
+        shell.cp('./authz/google.hosted-domain.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/auth.js');
+        shell.cp('./nonce.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/nonce.js');
+        writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js'], temp_dir);
         break;
       case '2':
-        shell.cp('./authz/google.json-email-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
+        shell.cp('./authz/google.json-email-lookup.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/auth.js');
         prompt.start();
         prompt.message = colors.blue(">>>");
         prompt.get({
@@ -244,7 +248,7 @@ function googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, 
           }
         }, function (err, result) {
           config.JSON_EMAIL_LOOKUP = result.JSON_EMAIL_LOOKUP;
-          writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js']);
+          writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'nonce.js'], temp_dir);
         });
         break;
       case '3':
@@ -253,18 +257,18 @@ function googleConfiguration(clientId, clientSecret, redirectURI, hostedDomain, 
         prompt.get({
           properties: {
             MOVE: {
-              message: colors.red("Place ") + colors.blue("google-authz.json") + colors.red(" file into ") + colors.blue("distributions/" + config.DISTRIBUTION) + colors.red(" folder. Press enter when done")
+              message: colors.red("Place ") + colors.blue("google-authz.json") + colors.red(" file into ") + colors.blue(`${temp_dir}/distributions/` + config.DISTRIBUTION) + colors.red(" folder. Press enter when done")
             }
           }
         }, function (err, result) {
-          if (!shell.test('-f', 'distributions/' + config.DISTRIBUTION + '/google-authz.json')) {
+          if (!shell.test('-f', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/google-authz.json')) {
             console.log('Need google-authz.json to use google groups authentication. Stopping build...');
           } else {
-            var googleAuthz = JSON.parse(fs.readFileSync('distributions/' + config.DISTRIBUTION + '/google-authz.json'));
+            var googleAuthz = JSON.parse(fs.readFileSync(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/google-authz.json'));
             if (!googleAuthz.hasOwnProperty('cloudfront_authz_groups')) {
               console.log('google-authz.json is missing cloudfront_authz_groups. Stopping build...');
             } else {
-              shell.cp('./authz/google.groups-lookup.js', './distributions/' + config.DISTRIBUTION + '/auth.js');
+              shell.cp('./authz/google.groups-lookup.js', `${temp_dir}/distributions/` + config.DISTRIBUTION + '/auth.js');
               googleGroupsConfiguration();
             }
           }
@@ -288,7 +292,7 @@ function googleGroupsConfiguration() {
     }
   }, function (err, result) {
     config.SERVICE_ACCOUNT_EMAIL = result.SERVICE_ACCOUNT_EMAIL;
-    writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'google-authz.json']);
+    writeConfig(config, zip, ['config.json', 'index.js', 'auth.js', 'google-authz.json'], temp_dir);
   });
 }
 
@@ -552,33 +556,37 @@ function googleGroupsConfiguration() {
 //   });
 // }
 
-function zip(files) {
+function zip(files, temp_dir) {
   var filesString = '';
   for (var i = 0; i < files.length; i++) {
-    filesString += ' distributions/' + config.DISTRIBUTION + '/' + files[i] + ' ';
+    filesString += ` ${temp_dir}/distributions/` + config.DISTRIBUTION + '/' + files[i] + ' ';
   }
-  shell.exec('zip -q distributions/' + config.DISTRIBUTION + '/' + config.DISTRIBUTION + '.zip ' + 'package-lock.json package.json -r node_modules');
-  shell.exec('zip -q -r -j distributions/' + config.DISTRIBUTION + '/' + config.DISTRIBUTION + '.zip ' + filesString);
-  console.log(colors.green("Done... created Lambda function distributions/" + config.DISTRIBUTION + "/" + config.DISTRIBUTION + ".zip"));
+  execSync(`zip -q ${temp_dir}/distributions/` + config.DISTRIBUTION + '/' + config.DISTRIBUTION + '.zip ' + 'package-lock.json package.json -r node_modules');
+  execSync(`zip -q -r -j ${temp_dir}/distributions/` + config.DISTRIBUTION + '/' + config.DISTRIBUTION + '.zip ' + filesString);
+  console.log(colors.green(`Done... created Lambda function ${temp_dir}/distributions/` + config.DISTRIBUTION + "/" + config.DISTRIBUTION + ".zip"));
 }
 
-function writeConfig(result, callback, files) {
-  fs.writeFile('distributions/' + config.DISTRIBUTION + '/config.json', JSON.stringify(result, null, 4), (err) => {
+function writeConfig(result, callback, files, temp_dir) {
+  fs.writeFile(`${temp_dir}/distributions/` + config.DISTRIBUTION + '/config.json', JSON.stringify(result, null, 4), (err) => {
     if (err) throw err;
-    callback(files);
+    callback(files, temp_dir);
   });
 }
 
 if (require.main === module) {
+
+  //Use tmp dir for all shell writes
+  var temp_dir = "/tmp"
+
   // Get the command line args
   let args = minimist(process.argv.slice(2));
-  distributionName = args["distributionName"]
-  authenticationMethod = args["authenticationMethod"]
-  clientId = args["clientId"]
-  clientSecret = args["clientSecret"]
-  redirectURI = args["redirectURI"]
-  hostedDomain = args["hostedDomain"]
-  sessionDuration = args["sessionDuration"]
-  authz = args["authz"]
-  init(distributionName, authenticationMethod, clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz);
+  let distributionName = args["distributionName"]
+  let authenticationMethod = args["authenticationMethod"]
+  let clientId = args["clientId"]
+  let clientSecret = args["clientSecret"]
+  let redirectURI = args["redirectURI"]
+  let hostedDomain = args["hostedDomain"]
+  let sessionDuration = args["sessionDuration"]
+  let authz = args["authz"]
+  init(distributionName, authenticationMethod, clientId, clientSecret, redirectURI, hostedDomain, sessionDuration, authz, temp_dir);
 }
