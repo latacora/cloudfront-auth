@@ -6,7 +6,6 @@ id_rsa
 id_rsa.pub
 google-authz.json
 auth.js
-/index.js
 /.idea
 tests/logs/*
 !tests/logs/.gitkeep
