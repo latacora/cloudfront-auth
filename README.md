@@ -1,3 +1,20 @@
+##############
+This information will be duplicated in the terraform for the lambda deployment.
+The lambda that this function uses relies on AWS Secrets Manager in the account 7743-8462-4252 (cetus main account)
+Must be in us-east-2
+
+Secret Name:
+CETUS_GCP_OAUTH2_CREDENTIALS
+
+Secret Keys:
+GCP_OAUTH2_CLIENT_ID
+GCP_OAUTH2_CLIENT_SECRET
+#############
+
+
+
+
+
 [Google Apps (G Suite)](https://developers.google.com/identity/protocols/OpenIDConnect), [Microsoft Azure AD](https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-protocols-oauth-code), [GitHub](https://developer.github.com/apps/building-oauth-apps/authorization-options-for-oauth-apps/), [OKTA](https://www.okta.com/), [Auth0](https://auth0.com/), [Centrify](https://centrify.com) authentication for [CloudFront](https://aws.amazon.com/cloudfront/) using [Lambda@Edge](http://docs.aws.amazon.com/lambda/latest/dg/lambda-edge.html). The original use case for `cloudfront-auth` was to serve private S3 content over HTTPS without running a proxy server in EC2 to authenticate requests; but `cloudfront-auth` can be used authenticate requests of any Cloudfront origin configuration.
 
 ## Description
@@ -127,3 +144,6 @@ All contributions are welcome. Please create an issue in order open up communica
 When implementing a new flow or using an already implemented flow, be sure to follow the same style used in `build.js`. The config.json file should have an object for each request made. For example, `openid.index.js` converts config.AUTH_REQUEST and config.TOKEN_REQUEST to querystrings for simplified requests (after adding dynamic variables such as state or nonce). For implementations that are not generic (most), endpoints are hardcoded in to the config (or discovery documents).
 
 Be considerate of our [limitations](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html#limits-lambda-at-edge). The zipped function can be no more than 1MB in size and execution cannot take longer than 5 seconds, so we must pay close attention to the size of our dependencies and complexity of operations.
+
+To run the bulid on the CLI:
+node build/build-cli.js --distributionName client --authenticationMethod 1 --clientId clientId --clientSecret clientSecret --redirectURI http://localhost/_callback --hostedDomain latacora.com --sessionDuration 1 --authz 1
