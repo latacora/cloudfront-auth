@@ -572,7 +572,7 @@ function writeConfig(result, callback, files, temp_dir) {
     callback(files, temp_dir);
   });
 }
-
+module.exports = {init};
 if (require.main === module) {
 
   //Use tmp dir for all shell writes
