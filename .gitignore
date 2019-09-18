@@ -5,7 +5,6 @@ cloudfront-auth.zip
 id_rsa
 id_rsa.pub
 google-authz.json
-auth.js
 /.idea
 tests/logs/*
 !tests/logs/.gitkeep
